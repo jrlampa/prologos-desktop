@@ -19,6 +19,37 @@ export function openSqlite(sqlitePath) {
   }
   db.pragma("foreign_keys = ON");
 
+  // Tabelas auxiliares para desktop (jobs + cache DataJud) - não quebram o schema existente.
+  try {
+    db.exec(
+      `
+      CREATE TABLE IF NOT EXISTS jobs (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        progress INTEGER NOT NULL DEFAULT 0,
+        message TEXT NOT NULL DEFAULT '',
+        numero_processo TEXT,
+        juiz_id INTEGER,
+        error TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+      CREATE INDEX IF NOT EXISTS idx_jobs_updated_at ON jobs(updated_at);
+
+      CREATE TABLE IF NOT EXISTS datajud_cache (
+        cache_key TEXT PRIMARY KEY,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        response_json TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_datajud_cache_expires_at ON datajud_cache(expires_at);
+      `
+    );
+  } catch {
+    // ignore
+  }
+
   return db;
 }
 
@@ -142,5 +173,69 @@ export function persistCloneResult(db, payload) {
   });
 
   return tx();
+}
+
+export function cacheGetDataJud(db, cacheKey) {
+  const now = Math.floor(Date.now() / 1000);
+  const row = db
+    .prepare("SELECT response_json, expires_at FROM datajud_cache WHERE cache_key = ?")
+    .get(cacheKey);
+  if (!row) return null;
+  if (Number(row.expires_at) <= now) {
+    try {
+      db.prepare("DELETE FROM datajud_cache WHERE cache_key = ?").run(cacheKey);
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+  try {
+    return JSON.parse(row.response_json);
+  } catch {
+    return null;
+  }
+}
+
+export function cacheSetDataJud(db, cacheKey, payload, ttlSeconds) {
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + Number(ttlSeconds || 0);
+  db.prepare(
+    `
+    INSERT INTO datajud_cache(cache_key, created_at, expires_at, response_json)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(cache_key) DO UPDATE SET
+      created_at=excluded.created_at,
+      expires_at=excluded.expires_at,
+      response_json=excluded.response_json
+    `
+  ).run(cacheKey, now, expiresAt, JSON.stringify(payload));
+}
+
+export function createJob(db, { id, numero_processo }) {
+  const now = new Date().toISOString();
+  db.prepare(
+    `
+    INSERT INTO jobs(id, status, progress, message, numero_processo, created_at, updated_at)
+    VALUES (?, 'queued', 0, 'Aguardando execução…', ?, ?, ?)
+    `
+  ).run(id, numero_processo || null, now, now);
+}
+
+export function updateJob(db, id, fields) {
+  const now = new Date().toISOString();
+  const next = { ...fields, updated_at: now };
+  const sets = [];
+  const values = [];
+  for (const [k, v] of Object.entries(next)) {
+    sets.push(`${k} = ?`);
+    values.push(v);
+  }
+  if (!sets.length) return;
+  values.push(id);
+  db.prepare(`UPDATE jobs SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+}
+
+export function getJob(db, id) {
+  return db.prepare("SELECT * FROM jobs WHERE id = ?").get(id);
 }
 

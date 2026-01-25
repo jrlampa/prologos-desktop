@@ -108,6 +108,13 @@ ${textoPeticao}
   // Compat: mantém o Simulador atual funcionando enquanto a análise não migra pro ml_service.
   router.post("/analise/peticao", upload.single("file"), async (req, res, next) => {
     try {
+      if (!fastapiBaseUrl) {
+        return res.status(501).json({
+          detail:
+            "Análise de afinidade (legado FastAPI/Python) não está disponível no modo desktop. Use o parecer Groq ou habilite FASTAPI_BASE_URL para desenvolvimento.",
+        });
+      }
+
       const juizId = requireJuizId(req);
       if (!req.file) {
         const err = new Error("Arquivo PDF (file) é obrigatório.");

@@ -1,0 +1,50 @@
+{
+  "name": "prologos-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "electron .",
+    "postinstall": "electron-builder install-app-deps",
+    "build:frontend": "npm --prefix ../frontend run build",
+    "build": "npm run build:frontend && electron-builder --win nsis",
+    "pack": "npm run build:frontend && electron-builder --dir --win"
+  },
+  "dependencies": {
+    "electron": "^34.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.prologos.desktop",
+    "productName": "Prologos Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**",
+      "../server/**",
+      "../frontend/dist/**",
+      "../backend/prologos_mvp.db"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/prologos_mvp.db",
+        "to": "prologos_mvp.db"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
+

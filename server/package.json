@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "src/index.js",
+  "main": "src/cli.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "dev": "nodemon src/cli.js",
+    "start": "node src/cli.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",

@@ -26,6 +26,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Electron
+desktop/dist/
+desktop/.cache/
+
 # OS / Editor
 .DS_Store
 Thumbs.db
