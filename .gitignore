@@ -33,3 +33,8 @@ desktop/.cache/
 # OS / Editor
 .DS_Store
 Thumbs.db
+
+# Beta Release
+components/dashboard/
+routes/aiRoutes.ts
+services/groqService.ts
