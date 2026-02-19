@@ -1,6 +1,5 @@
 import requests
 import json
-from sqlalchemy.orm import Session
 from backend.database_models import SessionLocal, Tribunal, Juiz, Decisao
 from datetime import datetime
 import re
@@ -38,10 +37,12 @@ DATAJUD_TIMEOUT_SECONDS = float(os.getenv("DATAJUD_TIMEOUT_SECONDS", "20"))
 DATAJUD_MIN_INTERVAL_SECONDS = float(os.getenv("DATAJUD_MIN_INTERVAL_SECONDS", "0.35"))
 DATAJUD_MAX_RETRIES = int(os.getenv("DATAJUD_MAX_RETRIES", "5"))
 DATAJUD_BACKOFF_FACTOR = float(os.getenv("DATAJUD_BACKOFF_FACTOR", "0.7"))
-DATAJUD_CACHE_TTL_SECONDS = int(os.getenv("DATAJUD_CACHE_TTL_SECONDS", str(7 * 24 * 3600)))
+DATAJUD_CACHE_TTL_SECONDS = int(
+    os.getenv("DATAJUD_CACHE_TTL_SECONDS", str(7 * 24 * 3600))
+)
 DATAJUD_CACHE_PATH = os.getenv(
     "DATAJUD_CACHE_PATH",
-    os.path.join(_BACKEND_DIR, "datajud_cache.sqlite3"),
+    os.path.join(os.path.dirname(_BACKEND_DIR), "backend", "datajud_cache.sqlite3"),
 )
 
 _last_call_lock = threading.Lock()
@@ -67,16 +68,14 @@ def _init_cache_if_needed() -> None:
             return
         conn = sqlite3.connect(DATAJUD_CACHE_PATH)
         try:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS datajud_cache (
                     cache_key TEXT PRIMARY KEY,
                     created_at INTEGER NOT NULL,
                     expires_at INTEGER NOT NULL,
                     response_json TEXT NOT NULL
                 )
-                """
-            )
+                """)
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_datajud_cache_expires_at ON datajud_cache(expires_at)"
             )
@@ -101,7 +100,9 @@ def _cache_get(cache_key: str) -> Optional[Dict[str, Any]]:
         if int(expires_at) <= now:
             # expirada
             try:
-                conn.execute("DELETE FROM datajud_cache WHERE cache_key = ?", (cache_key,))
+                conn.execute(
+                    "DELETE FROM datajud_cache WHERE cache_key = ?", (cache_key,)
+                )
                 conn.commit()
             except Exception:
                 pass
@@ -211,12 +212,18 @@ def datajud_search(
     resp = None
     for attempt in range(2):
         _throttle()
-        resp = sess.post(api_url, json=payload, headers=HEADERS, timeout=timeout_seconds)
+        resp = sess.post(
+            api_url, json=payload, headers=HEADERS, timeout=timeout_seconds
+        )
         if resp.status_code != 429 or attempt == 1:
             break
         retry_after = resp.headers.get("Retry-After")
         try:
-            delay = float(retry_after) if retry_after else max(1.0, DATAJUD_BACKOFF_FACTOR * 2)
+            delay = (
+                float(retry_after)
+                if retry_after
+                else max(1.0, DATAJUD_BACKOFF_FACTOR * 2)
+            )
         except Exception:
             delay = max(1.0, DATAJUD_BACKOFF_FACTOR * 2)
         time.sleep(delay)
@@ -235,31 +242,54 @@ def datajud_search(
 def detectar_tribunal_inteligente(numero_processo):
     num_limpo = re.sub(r"\D", "", numero_processo)
     if len(num_limpo) < 20:
-        return "https://api-publica.datajud.cnj.jus.br/api_publica_tjsp/_search", "TJSP", "SP"
+        return (
+            "https://api-publica.datajud.cnj.jus.br/api_publica_tjsp/_search",
+            "TJSP",
+            "SP",
+        )
     j_digit, tr_digits = num_limpo[13], num_limpo[14:16]
-    
+
     mapa_estaduais = {
-        "26": ("tjsp", "SP"), "19": ("tjrj", "RJ"), "13": ("tjmg", "MG"),
-        "21": ("tjrs", "RS"), "16": ("tjpr", "PR"), "05": ("tjba", "BA")
+        "26": ("tjsp", "SP"),
+        "19": ("tjrj", "RJ"),
+        "13": ("tjmg", "MG"),
+        "21": ("tjrs", "RS"),
+        "16": ("tjpr", "PR"),
+        "05": ("tjba", "BA"),
     }
     if j_digit == "8" and tr_digits in mapa_estaduais:
         api_code, estado = mapa_estaduais[tr_digits]
-        return f"https://api-publica.datajud.cnj.jus.br/api_publica_{api_code}/_search", f"TJ{estado}", estado
-    
-    return "https://api-publica.datajud.cnj.jus.br/api_publica_tjsp/_search", "TJSP", "SP"
+        return (
+            f"https://api-publica.datajud.cnj.jus.br/api_publica_{api_code}/_search",
+            f"TJ{estado}",
+            estado,
+        )
+
+    return (
+        "https://api-publica.datajud.cnj.jus.br/api_publica_tjsp/_search",
+        "TJSP",
+        "SP",
+    )
+
 
 def extrair_teor_decisao(processo_source):
     movimentos = processo_source.get("movimentos", [])
-    if not movimentos: return None
+    if not movimentos:
+        return None
     palavras_chave = ["julgamento", "sentença", "decisão", "mérito"]
     texto_relevante = ""
     for mov in movimentos:
         if any(p in mov.get("nome", "").lower() for p in palavras_chave):
             for comp in mov.get("complementosTabelados", []):
                 descricao = comp.get("descricao", "")
-                if len(descricao) > 50: texto_relevante += f"[{mov.get('dataHora', '')[:10]}] {descricao} | "
-            if len(texto_relevante) > 100: break
+                if len(descricao) > 50:
+                    texto_relevante += (
+                        f"[{mov.get('dataHora', '')[:10]}] {descricao} | "
+                    )
+            if len(texto_relevante) > 100:
+                break
     return texto_relevante
+
 
 def salvar_lote(lista_processos, nome_tribunal, estado_tribunal):
     session = SessionLocal()
@@ -289,16 +319,34 @@ def salvar_lote(lista_processos, nome_tribunal, estado_tribunal):
     for proc in lista_processos:
         source = proc["_source"]
         numero_processo = source.get("numeroProcesso")
-        if not session.query(Decisao).filter_by(numero_processo=numero_processo).first():
+        if (
+            not session.query(Decisao)
+            .filter_by(numero_processo=numero_processo)
+            .first()
+        ):
             teor = extrair_teor_decisao(source)
             tema = source.get("assuntos", [{}])[0].get("nome", "Geral")
             texto_completo = f"Assunto: {tema}. {teor or ''}"
-            if teor: com_teor += 1
-            dt = datetime.strptime(source.get("dataAjuizamento").split("T")[0], "%Y-%m-%d").date() if source.get("dataAjuizamento") else None
-            nova = Decisao(numero_processo=numero_processo, texto_decisao=texto_completo, resultado="Aguardando Análise", tema=tema, data_decisao=dt, juiz_id=juiz_id_retorno)
+            if teor:
+                com_teor += 1
+            dt = (
+                datetime.strptime(
+                    source.get("dataAjuizamento").split("T")[0], "%Y-%m-%d"
+                ).date()
+                if source.get("dataAjuizamento")
+                else None
+            )
+            nova = Decisao(
+                numero_processo=numero_processo,
+                texto_decisao=texto_completo,
+                resultado="Aguardando Análise",
+                tema=tema,
+                data_decisao=dt,
+                juiz_id=juiz_id_retorno,
+            )
             session.add(nova)
             novos += 1
-    
+
     session.commit()
     session.close()
     return {"novos": novos, "com_teor": com_teor, "juiz_id": juiz_id_retorno}
@@ -336,8 +384,10 @@ def montar_payload_lote(lista_processos, nome_tribunal: str, estado_tribunal: st
             com_teor += 1
 
         data_ajuizamento = source.get("dataAjuizamento")
-        data_decisao = data_ajuizamento.split("T")[0] if isinstance(data_ajuizamento, str) and "T" in data_ajuizamento else (
-            data_ajuizamento if isinstance(data_ajuizamento, str) else None
+        data_decisao = (
+            data_ajuizamento.split("T")[0]
+            if isinstance(data_ajuizamento, str) and "T" in data_ajuizamento
+            else (data_ajuizamento if isinstance(data_ajuizamento, str) else None)
         )
 
         decisoes.append(
@@ -374,11 +424,15 @@ def clonar_perfil_juiz_payload(
     try:
         if progress_cb:
             progress_cb(10, "Buscando processo de referência no DataJud…")
-        hits = datajud_search(
-            api_url,
-            payload_ref,
-            cache_key=f"proc_ref:{sigla_tribunal}:{numero_limpo}",
-        ).get("hits", {}).get("hits", [])
+        hits = (
+            datajud_search(
+                api_url,
+                payload_ref,
+                cache_key=f"proc_ref:{sigla_tribunal}:{numero_limpo}",
+            )
+            .get("hits", {})
+            .get("hits", [])
+        )
         if not hits:
             return {"sucesso": False, "msg": "Processo não encontrado."}
 
@@ -387,7 +441,10 @@ def clonar_perfil_juiz_payload(
         orgao_nome = (processo_ref.get("orgaoJulgador") or {}).get("nome")
 
         if not orgao_cod:
-            return {"sucesso": False, "msg": "Processo encontrado, mas sem orgaoJulgador.codigo."}
+            return {
+                "sucesso": False,
+                "msg": "Processo encontrado, mas sem orgaoJulgador.codigo.",
+            }
 
         if progress_cb:
             progress_cb(45, "Buscando histórico do órgão julgador no DataJud…")
@@ -396,11 +453,15 @@ def clonar_perfil_juiz_payload(
             "query": {"match": {"orgaoJulgador.codigo": orgao_cod}},
             "sort": [{"dataAjuizamento": "desc"}],
         }
-        hits_hist = datajud_search(
-            api_url,
-            payload_hist,
-            cache_key=f"hist_orgao:{sigla_tribunal}:{orgao_cod}:size=50",
-        ).get("hits", {}).get("hits", [])
+        hits_hist = (
+            datajud_search(
+                api_url,
+                payload_hist,
+                cache_key=f"hist_orgao:{sigla_tribunal}:{orgao_cod}:size=50",
+            )
+            .get("hits", {})
+            .get("hits", [])
+        )
 
         if progress_cb:
             progress_cb(80, "Normalizando payload…")
@@ -423,6 +484,7 @@ def clonar_perfil_juiz_payload(
     except Exception as e:
         return {"sucesso": False, "msg": str(e)}
 
+
 def clonar_perfil_juiz(
     numero_processo_ref: str,
     *,
@@ -434,28 +496,44 @@ def clonar_perfil_juiz(
     try:
         if progress_cb:
             progress_cb(10, "Buscando processo de referência no DataJud…")
-        hits = datajud_search(
-            api_url,
-            payload_ref,
-            cache_key=f"proc_ref:{sigla_tribunal}:{numero_limpo}",
-        ).get("hits", {}).get("hits", [])
-        if not hits: return {"sucesso": False, "msg": "Processo não encontrado."}
+        hits = (
+            datajud_search(
+                api_url,
+                payload_ref,
+                cache_key=f"proc_ref:{sigla_tribunal}:{numero_limpo}",
+            )
+            .get("hits", {})
+            .get("hits", [])
+        )
+        if not hits:
+            return {"sucesso": False, "msg": "Processo não encontrado."}
 
         processo_ref = hits[0]["_source"]
         orgao_cod = processo_ref.get("orgaoJulgador", {}).get("codigo")
         orgao_nome = processo_ref.get("orgaoJulgador", {}).get("nome")
 
         if not orgao_cod:
-            return {"sucesso": False, "msg": "Processo encontrado, mas sem orgaoJulgador.codigo."}
+            return {
+                "sucesso": False,
+                "msg": "Processo encontrado, mas sem orgaoJulgador.codigo.",
+            }
 
         if progress_cb:
             progress_cb(45, "Buscando histórico do órgão julgador no DataJud…")
-        payload_hist = {"size": 50, "query": {"match": {"orgaoJulgador.codigo": orgao_cod}}, "sort": [{"dataAjuizamento": "desc"}]}
-        hits_hist = datajud_search(
-            api_url,
-            payload_hist,
-            cache_key=f"hist_orgao:{sigla_tribunal}:{orgao_cod}:size=50",
-        ).get("hits", {}).get("hits", [])
+        payload_hist = {
+            "size": 50,
+            "query": {"match": {"orgaoJulgador.codigo": orgao_cod}},
+            "sort": [{"dataAjuizamento": "desc"}],
+        }
+        hits_hist = (
+            datajud_search(
+                api_url,
+                payload_hist,
+                cache_key=f"hist_orgao:{sigla_tribunal}:{orgao_cod}:size=50",
+            )
+            .get("hits", {})
+            .get("hits", [])
+        )
 
         if progress_cb:
             progress_cb(75, "Salvando processos no banco…")
@@ -467,7 +545,7 @@ def clonar_perfil_juiz(
             "sucesso": True,
             "msg": f"{stats['novos']} novos processos salvos.",
             "juiz_nome": f"Juízo da {orgao_nome}",
-            "juiz_id": stats["juiz_id"]
+            "juiz_id": stats["juiz_id"],
         }
     except Exception as e:
         return {"sucesso": False, "msg": str(e)}

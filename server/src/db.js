@@ -19,6 +19,9 @@ export function openSqlite(sqlitePath) {
   }
   db.pragma("foreign_keys = ON");
 
+  // Limpa jobs interrompidos (ex: fechamento brusco do app)
+  repairStaleJobs(db);
+
   // Tabelas auxiliares para desktop (jobs + cache DataJud) - não quebram o schema existente.
   try {
     db.exec(
@@ -51,6 +54,23 @@ export function openSqlite(sqlitePath) {
   }
 
   return db;
+}
+
+/**
+ * Corrige jobs que ficaram presos no estado 'running' ou 'queued' 
+ * após um reinício brusco da aplicação desktop.
+ */
+function repairStaleJobs(db) {
+  try {
+    const info = db.prepare(
+      "UPDATE jobs SET status = 'failed', error = 'Interrompido pelo sistema.' WHERE status IN ('running', 'queued')"
+    ).run();
+    if (info.changes > 0) {
+      console.log(`[db] ${info.changes} jobs interrompidos foram marcados como falhos.`);
+    }
+  } catch (err) {
+    console.error("[db] Falha ao reparar jobs:", err);
+  }
 }
 
 export function getJuizes(db) {

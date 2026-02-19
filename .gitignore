@@ -35,6 +35,20 @@ desktop/.cache/
 .DS_Store
 Thumbs.db
 
+# Logs and Databases
+*.log
+sovereign_judicial_audit.log
+*.db
+*.sqlite3
+test_sovereign.db
+
+# Infrastructure / Temporary
+.gemini/
+.idx/
+check_imports.py
+run_backend_tests.py
+verify_srp.py
+
 # Beta Release
 components/dashboard/
 routes/aiRoutes.ts

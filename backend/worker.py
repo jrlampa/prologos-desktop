@@ -1,17 +1,18 @@
-from __future__ import annotations
+import redis
+from rq import Worker, Queue, Connection
+from backend.core.config import settings
+from backend.core.logger import setup_logging
+import os
 
-from rq import Connection, Worker
+# Ensure logging is setup for the worker process
+setup_logging()
 
-from backend.queue import QUEUE_NAME, get_redis
+# Prioritized queue listening
+listen = ['high', 'default', 'low']
+redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+conn = redis.from_url(redis_url)
 
-
-def main() -> None:
-    redis_conn = get_redis()
-    with Connection(redis_conn):
-        worker = Worker([QUEUE_NAME])
-        worker.work(with_scheduler=True)
-
-
-if __name__ == "__main__":
-    main()
-
+if __name__ == '__main__':
+    with Connection(conn):
+        worker = Worker(list(map(Queue, listen)))
+        worker.work()

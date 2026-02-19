@@ -1,5 +1,5 @@
-from sqlalchemy.orm import Session
-from backend.database_models import SessionLocal, Decisao
+from backend.core.database import SessionLocal
+from backend.repository.models import Decisao
 
 # 1. O Teu "Dicionário Jurídico" (Taxonomia Própria)
 # Aqui definimos as regras. Se o texto conter X, a categoria é Y.

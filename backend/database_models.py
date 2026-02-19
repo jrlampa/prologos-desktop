@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from datetime import date
 
 # Importamos as ferramentas necessárias do SQLAlchemy
 from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, Date

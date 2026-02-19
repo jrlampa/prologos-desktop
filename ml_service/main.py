@@ -169,4 +169,3 @@ def rank(req: RankRequest):
         "totalCandidates": int(scores.shape[0]),
         "normalized": normalize,
     }
-

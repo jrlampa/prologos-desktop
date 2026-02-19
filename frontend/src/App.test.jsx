@@ -1,10 +1,8 @@
+/// <reference types="vitest" />
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import axios from 'axios';
+import { vi } from 'vitest';
 import App from './App';
-
-// Mock axios
-jest.mock('axios');
 
 const mockJuizes = [
   { id: 1, nome: 'Juiz 1' },
@@ -17,19 +15,23 @@ const mockJuizStats = {
   indeferidos: 40,
 };
 
-describe('App', () => {
-  beforeEach(() => {
-    axios.get.mockImplementation((url) => {
-      if (url.endsWith('/juizes')) {
-        return Promise.resolve({ data: mockJuizes });
-      }
-      if (url.includes('/stats')) {
-        return Promise.resolve({ data: mockJuizStats });
-      }
-      return Promise.reject(new Error('not found'));
-    });
-  });
+vi.mock('./services/api.js', () => {
+  return {
+    api: {
+      get: vi.fn((url) => {
+        if (url.endsWith('/juizes')) {
+          return Promise.resolve({ data: mockJuizes });
+        }
+        if (url.includes('/stats')) {
+          return Promise.resolve({ data: mockJuizStats });
+        }
+        return Promise.reject(new Error('not found'));
+      }),
+    },
+  };
+});
 
+describe('App', () => {
   it('renders the header and fetches juizes on initial render', async () => {
     render(<App />);
     

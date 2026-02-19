@@ -1,0 +1,35 @@
+# Exclude development environments
+venv/
+.venv/
+node_modules/
+
+# Exclude Git metadata
+.git/
+.github/
+
+# Exclude local databases and logs
+*.db
+*.sqlite3
+*.log
+sovereign_judicial_audit.log
+
+# Exclude Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Exclude temporary scripts
+check_imports.py
+run_backend_tests.py
+verify_srp.py
+
+# Exclude documentation and editor artifacts
+docs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

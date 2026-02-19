@@ -1,3 +1,101 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-primary: #2563eb;
+    /* Blue 600 */
+    --brand-secondary: #6366f1;
+    /* Indigo 500 */
+    --brand-accent: #10b981;
+    /* Emerald 500 */
+    --bg-base: #f8fafc;
+    /* Slate 50 */
+    --bg-surface: #ffffff;
+    /* White */
+    --text-primary: #1e293b;
+    /* Slate 800 */
+    --text-secondary: #64748b;
+    /* Slate 500 */
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-shadow: 0 8px 32px 0 rgba(76, 81, 109, 0.15);
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased overflow-x-hidden;
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+      linear-gradient(to bottom right, #f8fafc, #f1f5f9);
+  }
+}
+
+@layer components {
+  .premium-glass {
+    background-color: var(--glass-bg);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  /* Dark mode override for specific components if needed, or maintain unified Light theme */
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600;
+  }
+
+  .btn-premium {
+    @apply relative px-6 py-3 rounded-xl font-bold transition-all duration-300 overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/20 active:scale-95;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50/50 transition-all duration-200 font-medium;
+  }
+
+  .sidebar-link.active {
+    @apply text-blue-700 bg-blue-100/50 border-r-4 border-blue-600 font-bold shadow-sm;
+  }
+}
+
+/* Custom Scrollbar for Enterprise feel - Light Mode */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Utility for card hover effects */
+.hover-card {
+  @apply transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:bg-white/80;
+}

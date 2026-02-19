@@ -1,2 +1,1 @@
 """Prólogos ML Service package."""
-

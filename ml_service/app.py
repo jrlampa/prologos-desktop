@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Literal, Sequence, Union
+from typing import Any, List, Sequence, Union
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -55,4 +55,3 @@ def rank(req: RankRequest) -> RankResponse:
     # Placeholder (stateless). Retorna os primeiros topK com score=0.
     top = [RankedItem(id=c.id, score=0.0) for c in list(req.candidates)[: req.topK]]
     return RankResponse(top=top)
-
